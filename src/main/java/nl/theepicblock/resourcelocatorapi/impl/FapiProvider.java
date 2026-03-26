@@ -4,6 +4,6 @@ import net.fabricmc.fabric.impl.resource.pack.ModResourcePackCreator;
 
 public class FapiProvider {
     public static void addPacks(CompositeResourcePack pack) {
-        ModResourcePackCreator.CLIENT_RESOURCE_PACK_PROVIDER.register(pack::append);
+        ModResourcePackCreator.CLIENT_RESOURCE_PACK_PROVIDER.loadPacks(pack::append);
     }
 }

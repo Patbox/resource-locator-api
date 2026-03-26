@@ -7,10 +7,10 @@ import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(ModNioPackResources.class)
 public abstract class MoreContextFapi implements MoreContextPack {
-    @Shadow public abstract String getId();
+    @Shadow public abstract String packId();
 
     @Override
     public String resourcelocatorapi$getFullName() {
-        return this.getId();
+        return this.packId();
     }
 }

@@ -1,7 +1,7 @@
 package nl.theepicblock.resourcelocatorapi;
 
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.resource.ResourceType;
+import net.minecraft.server.packs.PackType;
 import nl.theepicblock.resourcelocatorapi.api.AssetContainer;
 import nl.theepicblock.resourcelocatorapi.impl.*;
 import org.slf4j.Logger;
@@ -14,7 +14,7 @@ public class ResourceLocatorApi {
 		var loader = FabricLoader.getInstance();
 
 		// Create empty composite pack
-		var compositePack = new CompositeResourcePack(ResourceType.CLIENT_RESOURCES);
+		var compositePack = new CompositeResourcePack(PackType.CLIENT_RESOURCES);
 
 		if (loader.isModLoaded("advanced_runtime_resource_pack")) {
 			ArrpProvider.addPacksBeforeVanilla(compositePack);

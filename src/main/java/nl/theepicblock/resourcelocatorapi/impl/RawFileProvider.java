@@ -1,10 +1,14 @@
 package nl.theepicblock.resourcelocatorapi.impl;
 
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.resource.*;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.InvalidIdentifierException;
+import net.minecraft.IdentifierException;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.AbstractPackResources;
+import net.minecraft.server.packs.PackLocationInfo;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.repository.PackSource;
+import net.minecraft.server.packs.resources.IoSupplier;
 import nl.theepicblock.resourcelocatorapi.ResourceLocatorApi;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -76,7 +80,7 @@ public class RawFileProvider {
                     var buffer = readMod(zipStream);
                     var split = entry.getName().substring(1).split("/", 3);
                     if (split.length == 3) {
-                        var id = Identifier.tryParse(split[1], split[2]);
+                        var id = Identifier.tryBuild(split[1], split[2]);
                         if (id != null) {
                             newPack.putAsset(id, buffer);
                         }
@@ -119,20 +123,20 @@ public class RawFileProvider {
         return ByteBuffer.wrap(buffer, 0, offset);
     }
 
-    private static final class BufferResourcePack extends AbstractFileResourcePack implements MoreContextPack {
+    private static final class BufferResourcePack extends AbstractPackResources implements MoreContextPack {
         private final Map<Identifier, ByteBuffer> assets = new HashMap<>();
         private final Map<Identifier, ByteBuffer> data = new HashMap<>();
 
         private BufferResourcePack(String name) {
-            super(new ResourcePackInfo(name, Text.literal(name), ResourcePackSource.NONE, Optional.empty()));
+            super(new PackLocationInfo(name, Component.literal(name), PackSource.DEFAULT, Optional.empty()));
         }
 
         @Nullable
         @Override
-        public InputSupplier<InputStream> openRoot(String... segments) {
+        public IoSupplier<InputStream> getRootResource(String... segments) {
             if (segments.length >= 3) {
-                return this.createSupplier(segments[0].equals("assets") ? ResourceType.CLIENT_RESOURCES : ResourceType.SERVER_DATA,
-                        Identifier.of(segments[0], String.join("/", List.of(segments).subList(2, segments.length)))
+                return this.createSupplier(segments[0].equals("assets") ? PackType.CLIENT_RESOURCES : PackType.SERVER_DATA,
+                        Identifier.fromNamespaceAndPath(segments[0], String.join("/", List.of(segments).subList(2, segments.length)))
                         );
             }
             return null;
@@ -140,18 +144,18 @@ public class RawFileProvider {
 
         @Nullable
         @Override
-        public InputSupplier<InputStream> open(ResourceType type, Identifier id) {
+        public IoSupplier<InputStream> getResource(PackType type, Identifier id) {
             return this.createSupplier(type, id);
         }
 
         @Override
-        public void findResources(ResourceType type, String namespace, String prefix, ResultConsumer consumer) {
-            var map = type == ResourceType.CLIENT_RESOURCES ? this.assets : this.data;
+        public void listResources(PackType type, String namespace, String prefix, ResourceOutput consumer) {
+            var map = type == PackType.CLIENT_RESOURCES ? this.assets : this.data;
             map.forEach((path, buf) -> {
                 if (path.getNamespace().equals(namespace) && path.getPath().startsWith(prefix)) {
                     try {
                         consumer.accept(path, () -> new ByteBufferInputStream(buf));
-                    } catch (InvalidIdentifierException e) {
+                    } catch (IdentifierException e) {
                         ResourceLocatorApi.LOGGER.warn("Invalid path in pack, ignoring: "+ path);
                     }
                 }
@@ -159,8 +163,8 @@ public class RawFileProvider {
         }
 
         @Override
-        public Set<String> getNamespaces(ResourceType type) {
-            return (type == ResourceType.CLIENT_RESOURCES ? this.assets : this.data).keySet().stream()
+        public Set<String> getNamespaces(PackType type) {
+            return (type == PackType.CLIENT_RESOURCES ? this.assets : this.data).keySet().stream()
                     .map(Identifier::getNamespace)
                     .collect(Collectors.toSet());
         }
@@ -170,8 +174,8 @@ public class RawFileProvider {
 
         }
 
-        private @Nullable InputSupplier<InputStream> createSupplier(ResourceType type, Identifier identifier) {
-            var buf = (type == ResourceType.CLIENT_RESOURCES ? this.assets : this.data).get(identifier);
+        private @Nullable IoSupplier<InputStream> createSupplier(PackType type, Identifier identifier) {
+            var buf = (type == PackType.CLIENT_RESOURCES ? this.assets : this.data).get(identifier);
             if (buf == null) return null;
             return () -> new ByteBufferInputStream(buf);
         }
@@ -187,7 +191,7 @@ public class RawFileProvider {
 
         @Override
         public String resourcelocatorapi$getFullName() {
-            return this.getId();
+            return this.packId();
         }
     }
 

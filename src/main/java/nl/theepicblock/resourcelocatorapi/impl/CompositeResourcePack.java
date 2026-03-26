@@ -1,13 +1,6 @@
 package nl.theepicblock.resourcelocatorapi.impl;
 
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import net.minecraft.resource.InputSupplier;
-import net.minecraft.resource.ResourcePack;
-import net.minecraft.resource.ResourcePackProfile;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.InvalidIdentifierException;
-import net.minecraft.util.Pair;
 import nl.theepicblock.resourcelocatorapi.ResourceLocatorApi;
 import nl.theepicblock.resourcelocatorapi.api.AssetContainer;
 import org.jetbrains.annotations.NotNull;
@@ -18,33 +11,40 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.function.Consumer;
+import net.minecraft.IdentifierException;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackResources;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.resources.IoSupplier;
+import net.minecraft.util.Tuple;
 
 public class CompositeResourcePack implements AssetContainer {
     /**
      * All packs contained in this compositepack
      */
-    private final Set<ResourcePack> resourcePacks = new LinkedHashSet<>();
+    private final Set<PackResources> resourcePacks = new LinkedHashSet<>();
     /**
-     * For every namespace, this map contains a list of {@link ResourcePack}'s that contain assets in that namespace. For optimization purposes.
+     * For every namespace, this map contains a list of {@link PackResources}'s that contain assets in that namespace. For optimization purposes.
      */
-    private final Map<String, List<ResourcePack>> packsPerNamespace = new HashMap<>();
+    private final Map<String, List<PackResources>> packsPerNamespace = new HashMap<>();
     /**
-     * The {@link ResourceType} that this resource pack is. (data packs are a type of resource pack)
+     * The {@link PackType} that this resource pack is. (data packs are a type of resource pack)
      */
-    private final ResourceType type;
+    private final PackType type;
 
-    public CompositeResourcePack(ResourceType type) {
+    public CompositeResourcePack(PackType type) {
         this.type = type;
     }
 
-    public void append(ResourcePackProfile packProfile) {
-        append(packProfile.createResourcePack());
+    public void append(Pack packProfile) {
+        append(packProfile.open());
     }
 
     /**
-     * Adds a {@link ResourcePack} to the composite pack, making all of its assets available
+     * Adds a {@link PackResources} to the composite pack, making all of its assets available
      */
-    public void append(ResourcePack pack) {
+    public void append(PackResources pack) {
         if (!resourcePacks.contains(pack)) {
             resourcePacks.add(pack);
 
@@ -55,20 +55,20 @@ public class CompositeResourcePack implements AssetContainer {
     }
 
     @Override
-    public @Nullable InputSupplier<InputStream> getAsset(String namespace, String path) {
+    public @Nullable IoSupplier<InputStream> getAsset(String namespace, String path) {
         var packs = packsPerNamespace.get(namespace);
         if (packs == null) return null;
 
         Identifier id;
         try {
-            id = Identifier.of(namespace, path);
-        } catch (InvalidIdentifierException e) {
+            id = Identifier.fromNamespaceAndPath(namespace, path);
+        } catch (IdentifierException e) {
             ResourceLocatorApi.LOGGER.warn("Trying to retrieve asset at an invalid location: "+e.getMessage());
             return null;
         }
 
         for (var pack : packs) {
-            var asset = pack.open(type, id);
+            var asset = pack.getResource(type, id);
             if (asset != null) {
                 return asset;
             }
@@ -77,22 +77,22 @@ public class CompositeResourcePack implements AssetContainer {
     }
 
     @Override
-    public @NotNull List<InputSupplier<InputStream>> getAllAssets(String namespace, String path) {
+    public @NotNull List<IoSupplier<InputStream>> getAllAssets(String namespace, String path) {
         var packs = packsPerNamespace.get(namespace);
         if (packs == null) return Collections.emptyList();
 
         Identifier id;
         try {
-            id = Identifier.of(namespace, path);
-        } catch (InvalidIdentifierException e) {
+            id = Identifier.fromNamespaceAndPath(namespace, path);
+        } catch (IdentifierException e) {
             ResourceLocatorApi.LOGGER.warn("Trying to lookup assets at an invalid location: "+e.getMessage());
             return Collections.emptyList();
         }
 
-        var list = new ArrayList<InputSupplier<InputStream>>();
+        var list = new ArrayList<IoSupplier<InputStream>>();
 
         for (var pack : packs) {
-            var asset = pack.open(type, id);
+            var asset = pack.getResource(type, id);
             if (asset != null) {
                 list.add(asset);
             }
@@ -112,25 +112,25 @@ public class CompositeResourcePack implements AssetContainer {
         if (packs == null) return false;
 
         try {
-            var id = Identifier.of(namespace, path);
+            var id = Identifier.fromNamespaceAndPath(namespace, path);
             for (var pack : packs) {
-                if (pack.open(type, id) != null) {
+                if (pack.getResource(type, id) != null) {
                     return true;
                 }
             }
-        } catch (InvalidIdentifierException e) {
+        } catch (IdentifierException e) {
             ResourceLocatorApi.LOGGER.warn("Trying to check if an invalid location contains an asset: "+e.getMessage());
         }
         return false;
     }
 
     @Override
-    public @NotNull Set<Pair<Identifier, InputSupplier<InputStream>>> locateFiles(String prefix) {
-        var returnSet = new ObjectArraySet<Pair<Identifier, InputSupplier<InputStream>>>();
+    public @NotNull Set<Tuple<Identifier, IoSupplier<InputStream>>> locateFiles(String prefix) {
+        var returnSet = new ObjectArraySet<Tuple<Identifier, IoSupplier<InputStream>>>();
         for (var pack : this.resourcePacks) {
             for (var namespace : pack.getNamespaces(type)) {
-                pack.findResources(type, namespace, prefix, (identifier, inputStreamSupplier) -> {
-                    returnSet.add(new Pair<>(identifier, inputStreamSupplier));
+                pack.listResources(type, namespace, prefix, (identifier, inputStreamSupplier) -> {
+                    returnSet.add(new Tuple<>(identifier, inputStreamSupplier));
                 });
             }
         }
@@ -146,7 +146,7 @@ public class CompositeResourcePack implements AssetContainer {
             if (pack instanceof MoreContextPack moreContextPack) {
                 name = moreContextPack.resourcelocatorapi$getFullName();
             } else {
-                name = pack.getId();
+                name = pack.packId();
             }
             builder.append("\n - ").append(name);
         }

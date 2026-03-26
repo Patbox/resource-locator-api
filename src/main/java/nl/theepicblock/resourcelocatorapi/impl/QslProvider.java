@@ -1,16 +1,12 @@
 package nl.theepicblock.resourcelocatorapi.impl;
 
 
-import net.minecraft.resource.ResourcePack;
-import net.minecraft.resource.ResourceType;
-//import org.quiltmc.qsl.resource.loader.impl.ModResourcePackProvider;
-//import org.quiltmc.qsl.resource.loader.impl.ResourceLoaderImpl;
-
 import java.util.ArrayList;
+import net.minecraft.server.packs.PackResources;
 
 public class QslProvider {
     public static void addPacks(CompositeResourcePack pack) {
-        var packs = new ArrayList<ResourcePack>();
+        var packs = new ArrayList<PackResources>();
         //ResourceLoaderImpl.appendModResourcePacks(packs, ResourceType.CLIENT_RESOURCES, null);
         packs.forEach(pack::append);
 
