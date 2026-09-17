@@ -15,7 +15,7 @@ public class FapiProvider {
                 // This means if a mod adds (for example) a disabled-by-default programmer art pack
                 // then that won't be included
                 if (packResources instanceof ModNioPackResources mPack && mPack.getActivationType().isEnabledByDefault()) {
-                    outputPack.append(packResources);
+                    packResources.forEach(outputPack::append);
                 } else {
                     packResources.close();
                 }

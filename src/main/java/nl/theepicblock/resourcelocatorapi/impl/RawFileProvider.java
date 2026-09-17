@@ -4,8 +4,9 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.IdentifierException;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.AbstractPackResources;
+import net.minecraft.server.packs.AbstractPackMetadataResources;
 import net.minecraft.server.packs.PackLocationInfo;
+import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.PackSource;
 import net.minecraft.server.packs.resources.IoSupplier;
@@ -122,7 +123,7 @@ public class RawFileProvider {
         return ByteBuffer.wrap(buffer, 0, offset);
     }
 
-    private static final class BufferResourcePack extends AbstractPackResources implements MoreContextPack {
+    private static final class BufferResourcePack extends AbstractPackMetadataResources implements PackResources, MoreContextPack {
         private final Map<Identifier, ByteBuffer> assets = new HashMap<>();
         private final Map<Identifier, ByteBuffer> data = new HashMap<>();
 

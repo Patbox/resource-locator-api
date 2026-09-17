@@ -35,7 +35,7 @@ public class CompositeResourcePack implements AssetContainer {
     }
 
     public void append(Pack packProfile) {
-        append(packProfile.open());
+        packProfile.open().forEach(this::append);
     }
 
     /**
